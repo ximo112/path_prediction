@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS "-march=native -O2")
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
