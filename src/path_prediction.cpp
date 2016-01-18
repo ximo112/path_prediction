@@ -1,8 +1,9 @@
 #include<ros/ros.h>
 #include<math.h>
 #include<sensor_msgs/PointCloud.h>
-#define elapsed_time 1
+#define elapsed_time 2
 #define interval 0.05
+#define acceptable_acceleration 5
 
 using namespace std;
 
@@ -17,17 +18,10 @@ public:
 
     objects.points.clear();
     objects.channels.clear();
-    objects.points.resize((int)msg->points.size());
-    objects.channels.resize((int)msg->points.size());
-    objects.channels[0].values.resize((int)msg->channels[0].values.size());
+    objects.points = msg->points;
+    objects.channels = msg->channels;
     objects.header.frame_id = msg->header.frame_id;
     objects.header.stamp = ros::Time::now();
-    objects.channels[0].name = msg->channels[0].name;
-    for(int i = 0; i < (int)msg->points.size(); i++){
-      objects.points[i].x = msg->points[i].x;
-      objects.points[i].y = msg->points[i].y;
-      objects.channels[0].values[i] = msg->channels[0].values[i];
-    }
   }
 
   void calc(){
@@ -38,6 +32,8 @@ public:
     theta.clear();
     velocity.resize((int)objects.points.size());
     theta.resize((int)objects.points.size());
+    forecast_x_all.clear();
+    forecast_y_all.clear();
     points_num_all = 0;
     for(int i = 0; i < (int)objects.points.size(); i++){
       for(int j = 0; j < objects_old_num_max; j++){
@@ -74,11 +70,92 @@ public:
         k += 1;
       }
     }
+/*    if(check == 0){
+      velocity_ave0.clear();
+      association_num_ave0.clear();
+      velocity_ave0.resize((int)objects.points.size());
+      association_num_ave0.resize((int)objects.points.size());
+      objects_num_ave0 = (int)objects.points.size();
+      for(int i = 0; i < (int)objects.points.size(); i++){
+        velocity_ave0[i] = velocity[i];
+        association_num_ave0[i] = objects.channels[0].values[i];
+      }
+    }else if(check == 1){
+      velocity_ave1.clear();
+      association_num_ave1.clear();
+      velocity_ave1.resize((int)objects.points.size());
+      association_num_ave1.resize((int)objects.points.size());
+      objects_num_ave1 = (int)objects.points.size();
+      for(int i = 0; i < (int)objects.points.size(); i++){
+        velocity_ave1[i] = velocity[i];
+        association_num_ave1[i] = objects.channels[0].values[i];
+      }
+    }else if(check == 2){
+      check = 0;
+      velocity_ave.clear();
+      velocity_ave.resize((int)objects.points.size());
+      float velocity_decision[3], velocity_ave[(int)objects.points.size()];
+      for(int i = 0; i < (int)objects.points.size(); i++){
+        for(int j = 0; j < objects_num_ave1; j++){
+          for(int k = 0; k < objects_num_ave0; k++){
+            if(objects.channels[0].values[i] == association_num_ave1[j] && objects.channels[0].values[i] == association_num_ave0[k]){
+              float velocity_diff0 = abs(velocity[i] - velocity_ave1[j]);
+              if(velocity_diff0 > acceptable_acceleration){
+                velocity_decision[2] += 1;
+                velocity_decision[1] += 1;
+              }
+              float velocity_diff1 = abs(velocity[i] - velocity_ave0[k]);
+              if(velocity_diff1 > acceptable_acceleration){
+                velocity_decision[2] += 1;
+                velocity_decision[0] += 1;
+              }
+              float velocity_diff2 = abs(velocity_ave1[j] - velocity_ave0[k]);
+              if(velocity_diff2 > acceptable_acceleration){
+                velocity_decision[1] += 1;
+                velocity_decision[0] += 1;
+              }
+              for(int l = 0; l < 3; l++){
+                if(velocity_decision[l] == 2){
+                  if(l == 0){
+                    velocity_ave[i] = (velocity[i] + velocity_ave1[j]) / 2;
+                  }else if(l == 1){
+                    velocity_ave[i] = (velocity[i] + velocity_ave0[k]) / 2;
+                  }else if(l == 2){
+                    velocity_ave[i] = (velocity_ave1[j] + velocity_ave0[k]) / 2;
+                  }
+                }else if(l >= 2){
+                  velocity_ave[i] = (velocity[i] + velocity_ave1[j] + velocity_ave0[k]) / 3;
+                }
+              }
+            }
+          }
+        }
+        length = velocity_ave[i] * elapsed_time;
+        points_num[i] = abs(length / interval);
+        ROS_WARN("points_num;%d, num:%f", points_num[i], objects.channels[0].values[i]);
+        float forecast_x[points_num[i]];
+        float forecast_y[points_num[i]];
+        for(int j = 0; j < points_num[i]; j++){
+          forecast_x[j] = cos(theta[i]) * (interval * j) + objects.points[i].x;
+          forecast_y[j] = sin(theta[i]) * (interval * j) + objects.points[i].y;
+        }
+        points_num_all += points_num[i];
+        forecast_x_all.resize(points_num_all);
+        forecast_y_all.resize(points_num_all);
+        int k = 0;
+        for(int j = points_num_all - points_num[i]; j < points_num_all; j++){
+          forecast_x_all[j] = forecast_x[k];
+          forecast_y_all[j] = forecast_y[k];
+          k += 1;
+        }
+      }
+    }*/
   }
 
   void run(){
     int old = false, stamp_adjustment = 0;
     callback = false;
+    check = 0;
     while(ros::ok()){
       if(callback == true){
         callback = false;
@@ -101,6 +178,7 @@ public:
             stamp_adjustment = 0;
 
             calc();
+            check += 1;
 
             prediction_cost.points.clear();
             prediction_cost.points.resize(points_num_all);
@@ -139,8 +217,8 @@ private:
   ros::Publisher path_prediction_pub;
   sensor_msgs::PointCloud objects;
   sensor_msgs::PointCloud prediction_cost;
-  vector<float> objects_old_x, objects_old_y, objects_old_number, velocity, theta, forecast_x_all, forecast_y_all;
-  int callback, objects_old_num_max, points_num_all;
+  vector<float> objects_old_x, objects_old_y, objects_old_number, velocity, theta, forecast_x_all, forecast_y_all, velocity_ave0, velocity_ave1, association_num_ave0, association_num_ave1, velocity_ave;
+  int callback, objects_old_num_max, points_num_all, check, objects_num_ave0, objects_num_ave1;
   float length;
   double stamp_old;
 
