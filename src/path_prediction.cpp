@@ -1,8 +1,9 @@
-#include<ros/ros.h>
-#include<math.h>
-#include<sensor_msgs/PointCloud.h>
+#include <ros/ros.h>
+#include <math.h>
+#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/LaserScan.h>
 #include <tf/transform_listener.h>
-#define elapsed_time 2
+#define elapsed_time 1.5
 #define interval 0.05
 #define acceptable_acceleration 5
 
@@ -12,6 +13,7 @@ class Prediction{
 public:
   Prediction(){
     associatied_obstacle_sub = nh.subscribe("associatied_obstacle", 10, &Prediction::associatied_obstacleCallBack, this);
+    scan_sub = nh.subscribe("scan", 10, &Prediction::scanCallBack, this);
     path_prediction_pub = nh.advertise<sensor_msgs::PointCloud>("path_prediction", 1000);
   }
   void associatied_obstacleCallBack(const sensor_msgs::PointCloud::ConstPtr& msg){
@@ -23,12 +25,20 @@ public:
     objects.channels = msg->channels;
     objects.header.frame_id = msg->header.frame_id;
     objects.header.stamp = ros::Time::now();
-  }
+ }
+ void scanCallBack(const sensor_msgs::LaserScan::ConstPtr& msg){
+   scan.header = msg->header;
+   scan.ranges = msg->ranges;
+   scan.time_increment = msg->time_increment;
+ }
 
   void calc(){
     int points_num[(int)objects.points.size()];
     float diff_x, diff_y, distance;
 
+    for(int i = 0; i < (int)objects.points.size(); i++){
+      points_num[i] = 0;
+    }
     velocity.clear();
     theta.clear();
     velocity.resize((int)objects.points.size());
@@ -190,10 +200,12 @@ public:
             prediction_cost.header.frame_id = objects.header.frame_id;
             prediction_cost.header.stamp = ros::Time::now();
 
-            if(!listener.waitForTransform(prediction_cost.header.frame_id, "base_link", ros::Time(0), ros::Duration(10.0))){
-              return;
+            try{
+              listener.waitForTransform("map", "base_link", scan.header.stamp + ros::Duration().fromSec(scan.ranges.size() * scan.time_increment), ros::Duration(3.0));
+              listener.transformPointCloud("base_link", prediction_cost, prediction_cost);
+            } catch (tf::TransformException ex) {
+              ROS_INFO("%s",ex.what());
             }
-            listener.transformPointCloud("base_link", prediction_cost, prediction_cost);
             path_prediction_pub.publish(prediction_cost);
             ROS_INFO("----");//
           }
@@ -220,9 +232,11 @@ public:
 private:
   ros::NodeHandle nh;
   ros::Subscriber associatied_obstacle_sub;
+  ros::Subscriber scan_sub;
   ros::Publisher path_prediction_pub;
   sensor_msgs::PointCloud objects;
   sensor_msgs::PointCloud prediction_cost;
+  sensor_msgs::LaserScan scan;
   tf::TransformListener listener;
   vector<float> objects_old_x, objects_old_y, objects_old_number, velocity, theta, forecast_x_all, forecast_y_all, velocity_ave0, velocity_ave1, association_num_ave0, association_num_ave1, velocity_ave;
   int callback, objects_old_num_max, points_num_all, check, objects_num_ave0, objects_num_ave1;
