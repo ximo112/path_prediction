@@ -164,6 +164,7 @@ public:
   }
 
   void run(){
+    ros::Rate loop_rate(5);//local_costmap_paramsのupdata_frequencyを20.0にしないとコストとして反映されにくい
     int old = false, stamp_adjustment = 0;
     callback = false;
     check = 0;
@@ -206,7 +207,7 @@ public:
             } catch (tf::TransformException ex) {
               ROS_INFO("%s",ex.what());
             }
-            path_prediction_pub.publish(prediction_cost);
+//            path_prediction_pub.publish(prediction_cost);
             ROS_INFO("----");//
           }
         }
@@ -226,7 +227,9 @@ public:
         stamp_old = objects.header.stamp.toSec();
         old = true;
       }
+      path_prediction_pub.publish(prediction_cost);
       ros::spinOnce();
+      loop_rate.sleep();
     }
   }
 private:
