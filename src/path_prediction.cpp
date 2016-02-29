@@ -3,9 +3,8 @@
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/LaserScan.h>
 #include <tf/transform_listener.h>
-#define elapsed_time 1.5
-#define interval 0.05
-#define acceptable_acceleration 5
+#define elapsed_time 1.5 //何秒後までを予測するか
+#define interval 0.05 //経路予測としてpubするPointCloudの間隔
 
 using namespace std;
 
@@ -81,86 +80,6 @@ public:
         k += 1;
       }
     }
-/*    if(check == 0){
-      velocity_ave0.clear();
-      association_num_ave0.clear();
-      velocity_ave0.resize((int)objects.points.size());
-      association_num_ave0.resize((int)objects.points.size());
-      objects_num_ave0 = (int)objects.points.size();
-      for(int i = 0; i < (int)objects.points.size(); i++){
-        velocity_ave0[i] = velocity[i];
-        association_num_ave0[i] = objects.channels[0].values[i];
-      }
-    }else if(check == 1){
-      velocity_ave1.clear();
-      association_num_ave1.clear();
-      velocity_ave1.resize((int)objects.points.size());
-      association_num_ave1.resize((int)objects.points.size());
-      objects_num_ave1 = (int)objects.points.size();
-      for(int i = 0; i < (int)objects.points.size(); i++){
-        velocity_ave1[i] = velocity[i];
-        association_num_ave1[i] = objects.channels[0].values[i];
-      }
-    }else if(check == 2){
-      check = 0;
-      velocity_ave.clear();
-      velocity_ave.resize((int)objects.points.size());
-      float velocity_decision[3], velocity_ave[(int)objects.points.size()];
-      for(int i = 0; i < (int)objects.points.size(); i++){
-        for(int j = 0; j < objects_num_ave1; j++){
-          for(int k = 0; k < objects_num_ave0; k++){
-            if(objects.channels[0].values[i] == association_num_ave1[j] && objects.channels[0].values[i] == association_num_ave0[k]){
-              float velocity_diff0 = abs(velocity[i] - velocity_ave1[j]);
-              if(velocity_diff0 > acceptable_acceleration){
-                velocity_decision[2] += 1;
-                velocity_decision[1] += 1;
-              }
-              float velocity_diff1 = abs(velocity[i] - velocity_ave0[k]);
-              if(velocity_diff1 > acceptable_acceleration){
-                velocity_decision[2] += 1;
-                velocity_decision[0] += 1;
-              }
-              float velocity_diff2 = abs(velocity_ave1[j] - velocity_ave0[k]);
-              if(velocity_diff2 > acceptable_acceleration){
-                velocity_decision[1] += 1;
-                velocity_decision[0] += 1;
-              }
-              for(int l = 0; l < 3; l++){
-                if(velocity_decision[l] == 2){
-                  if(l == 0){
-                    velocity_ave[i] = (velocity[i] + velocity_ave1[j]) / 2;
-                  }else if(l == 1){
-                    velocity_ave[i] = (velocity[i] + velocity_ave0[k]) / 2;
-                  }else if(l == 2){
-                    velocity_ave[i] = (velocity_ave1[j] + velocity_ave0[k]) / 2;
-                  }
-                }else if(l >= 2){
-                  velocity_ave[i] = (velocity[i] + velocity_ave1[j] + velocity_ave0[k]) / 3;
-                }
-              }
-            }
-          }
-        }
-        length = velocity_ave[i] * elapsed_time;
-        points_num[i] = abs(length / interval);
-        ROS_WARN("points_num;%d, num:%f", points_num[i], objects.channels[0].values[i]);
-        float forecast_x[points_num[i]];
-        float forecast_y[points_num[i]];
-        for(int j = 0; j < points_num[i]; j++){
-          forecast_x[j] = cos(theta[i]) * (interval * j) + objects.points[i].x;
-          forecast_y[j] = sin(theta[i]) * (interval * j) + objects.points[i].y;
-        }
-        points_num_all += points_num[i];
-        forecast_x_all.resize(points_num_all);
-        forecast_y_all.resize(points_num_all);
-        int k = 0;
-        for(int j = points_num_all - points_num[i]; j < points_num_all; j++){
-          forecast_x_all[j] = forecast_x[k];
-          forecast_y_all[j] = forecast_y[k];
-          k += 1;
-        }
-      }
-    }*/
   }
 
   void run(){
@@ -207,8 +126,6 @@ public:
             } catch (tf::TransformException ex) {
               ROS_INFO("%s",ex.what());
             }
-//            path_prediction_pub.publish(prediction_cost);
-            ROS_INFO("----");//
           }
         }
 
